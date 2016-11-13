@@ -1,209 +1,92 @@
-/**
- * PhoneGap is available under *either* the terms of the modified BSD license *or* the
- * MIT License (2008). See http://opensource.org/licenses/alphabetical for full text.
- *
- * Copyright (c) Matt Kane 2010
- * Copyright (c) 2011, IBM Corporation
- * Copyright (c) 2013, Maciej Nux Jaros
- */
 package com.phonegap.plugins.barcodescanner;
 
+import org.apache.cordova.*;
+import org.json.JSONArray;
+import org.json.JSONException;
+import com.google.zxing.integration.android.IntentIntegrator;
+import com.google.zxing.integration.android.IntentResult;
+import android.util.Log;
+
+//
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import android.Manifest;
 import android.app.Activity;
 import android.content.Intent;
 import android.util.Log;
 import android.content.pm.PackageManager;
-
 import org.apache.cordova.CordovaPlugin;
 import org.apache.cordova.CallbackContext;
 import org.apache.cordova.PluginResult;
 import org.apache.cordova.PermissionHelper;
 
-import com.google.zxing.client.android.CaptureActivity;
-import com.google.zxing.client.android.encode.EncodeActivity;
-import com.google.zxing.client.android.Intents;
-
-/**
- * This calls out to the ZXing barcode reader and returns the result.
- *
- * @sa https://github.com/apache/cordova-android/blob/master/framework/src/org/apache/cordova/CordovaPlugin.java
- */
 public class BarcodeScanner extends CordovaPlugin {
-    public static final int REQUEST_CODE = 0x0ba7c0de;
-
-    private static final String SCAN = "scan";
-    private static final String ENCODE = "encode";
-    private static final String CANCELLED = "cancelled";
-    private static final String FORMAT = "format";
-    private static final String TEXT = "text";
-    private static final String DATA = "data";
-    private static final String TYPE = "type";
-    private static final String PREFER_FRONTCAMERA = "preferFrontCamera";
-    private static final String ORIENTATION = "orientation";
-    private static final String SHOW_FLIP_CAMERA_BUTTON = "showFlipCameraButton";
-    private static final String FORMATS = "formats";
-    private static final String PROMPT = "prompt";
-    private static final String TEXT_TYPE = "TEXT_TYPE";
-    private static final String EMAIL_TYPE = "EMAIL_TYPE";
-    private static final String PHONE_TYPE = "PHONE_TYPE";
-    private static final String SMS_TYPE = "SMS_TYPE";
-
-    private static final String LOG_TAG = "BarcodeScanner";
-
-    private String [] permissions = { Manifest.permission.CAMERA };
-
-    private JSONArray requestArgs;
-    private CallbackContext callbackContext;
-
-    /**
-     * Constructor.
-     */
-    public BarcodeScanner() {
-    }
-
-    /**
-     * Executes the request.
-     *
-     * This method is called from the WebView thread. To do a non-trivial amount of work, use:
-     *     cordova.getThreadPool().execute(runnable);
-     *
-     * To run on the UI thread, use:
-     *     cordova.getActivity().runOnUiThread(runnable);
-     *
-     * @param action          The action to execute.
-     * @param args            The exec() arguments.
-     * @param callbackContext The callback context used when calling back into JavaScript.
-     * @return                Whether the action was valid.
-     *
-     * @sa https://github.com/apache/cordova-android/blob/master/framework/src/org/apache/cordova/CordovaPlugin.java
-     */
+  
+  // public static final int REQUEST_CODE = "49374"; //0x0ba7c0de;
+  private static final String SCAN = "scan";
+  private static final String ENCODE = "encode";
+  private static final String CANCELLED = "cancelled";
+  private static final String FORMAT = "format";
+  private static final String TEXT = "text";
+  private static final String DATA = "data";
+  private static final String TYPE = "type";
+  private static final String PREFER_FRONTCAMERA = "preferFrontCamera";
+  private static final String ORIENTATION = "orientation";
+  private static final String SHOW_FLIP_CAMERA_BUTTON = "showFlipCameraButton";
+  private static final String FORMATS = "formats";
+  private static final String PROMPT = "prompt";
+  private static final String TEXT_TYPE = "TEXT_TYPE";
+  private static final String EMAIL_TYPE = "EMAIL_TYPE";
+  private static final String PHONE_TYPE = "PHONE_TYPE";
+  private static final String SMS_TYPE = "SMS_TYPE";
+  private static final String LOG_TAG = "BarcodeScanner";
+  private String [] permissions = { Manifest.permission.CAMERA };
+  
+  private CallbackContext callbackContext;
+  private JSONArray requestArgs;
     @Override
-    public boolean execute(String action, JSONArray args, CallbackContext callbackContext) {
-        this.callbackContext = callbackContext;
-        this.requestArgs = args;
-
-        if (action.equals(ENCODE)) {
-            JSONObject obj = args.optJSONObject(0);
-            if (obj != null) {
-                String type = obj.optString(TYPE);
-                String data = obj.optString(DATA);
-
-                // If the type is null then force the type to text
-                if (type == null) {
-                    type = TEXT_TYPE;
-                }
-
-                if (data == null) {
-                    callbackContext.error("User did not specify data to encode");
-                    return true;
-                }
-
-                encode(type, data);
-            } else {
-                callbackContext.error("User did not specify data to encode");
-                return true;
-            }
-        } else if (action.equals(SCAN)) {
-
-            //android permission auto add
-            if(!hasPermisssion()) {
+    public boolean execute(String action, JSONArray data, CallbackContext callbackContext) throws JSONException {
+      this.callbackContext = callbackContext;
+      this.requestArgs = data;
+       Log.i("===========================", "================================");
+      
+      if(!hasPermisssion()) {
               requestPermissions(0);
             } else {
-              scan(args);
+              scan();
             }
-        } else {
-            return false;
-        }
+
         return true;
     }
-
-    /**
-     * Starts an intent to scan and decode a barcode.
-     */
-    public void scan(final JSONArray args) {
-
-        final CordovaPlugin that = this;
-
-        cordova.getThreadPool().execute(new Runnable() {
-            public void run() {
-
-                Intent intentScan = new Intent(that.cordova.getActivity().getBaseContext(), CaptureActivity.class);
-                intentScan.setAction(Intents.Scan.ACTION);
-                intentScan.addCategory(Intent.CATEGORY_DEFAULT);
-
-                // add config as intent extras
-                if (args.length() > 0) {
-
-                    JSONObject obj;
-                    JSONArray names;
-                    String key;
-                    Object value;
-
-                    for (int i = 0; i < args.length(); i++) {
-
-                        try {
-                            obj = args.getJSONObject(i);
-                        } catch (JSONException e) {
-                            Log.i("CordovaLog", e.getLocalizedMessage());
-                            continue;
-                        }
-
-                        names = obj.names();
-                        for (int j = 0; j < names.length(); j++) {
-                            try {
-                                key = names.getString(j);
-                                value = obj.get(key);
-
-                                if (value instanceof Integer) {
-                                    intentScan.putExtra(key, (Integer) value);
-                                } else if (value instanceof String) {
-                                    intentScan.putExtra(key, (String) value);
-                                }
-
-                            } catch (JSONException e) {
-                                Log.i("CordovaLog", e.getLocalizedMessage());
-                            }
-                        }
-
-                        intentScan.putExtra(Intents.Scan.CAMERA_ID, obj.optBoolean(PREFER_FRONTCAMERA, false) ? 1 : 0);
-                        intentScan.putExtra(Intents.Scan.SHOW_FLIP_CAMERA_BUTTON, obj.optBoolean(SHOW_FLIP_CAMERA_BUTTON, false));
-                        if (obj.has(FORMATS)) {
-                            intentScan.putExtra(Intents.Scan.FORMATS, obj.optString(FORMATS));
-                        }
-                        if (obj.has(PROMPT)) {
-                            intentScan.putExtra(Intents.Scan.PROMPT_MESSAGE, obj.optString(PROMPT));
-                        }
-                        if (obj.has(ORIENTATION)) {
-                            intentScan.putExtra(Intents.Scan.ORIENTATION_LOCK, obj.optString(ORIENTATION));
-                        }
-                    }
-
-                }
-
-                // avoid calling other phonegap apps
-                intentScan.setPackage(that.cordova.getActivity().getApplicationContext().getPackageName());
-
-                that.cordova.startActivityForResult(that, intentScan, REQUEST_CODE);
-            }
-        });
+    
+    public void scan() {
+      this.cordova.setActivityResultCallback(this);
+      new IntentIntegrator(this.cordova.getActivity()).setOrientationLocked(false).setCaptureActivity(CustomScannerActivity.class).initiateScan();
     }
-
-    /**
-     * Called when the barcode scanner intent completes.
-     *
-     * @param requestCode The request code originally supplied to startActivityForResult(),
-     *                       allowing you to identify who this result came from.
-     * @param resultCode  The integer result code returned by the child activity through its setResult().
-     * @param intent      An Intent, which can return result data to the caller (various data can be attached to Intent "extras").
-     */
+    
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent intent) {
-        if (requestCode == REQUEST_CODE && this.callbackContext != null) {
+      Log.i("===========================", "Inside> onActivityResult");
+      Log.i("==========>>>", "requestCode: "+requestCode);
+      
+      if(this.callbackContext == null){
+        Log.i("==========>>>", "callbackContext > NULL");  
+      }else{
+        Log.i("==========>>>", "callbackContext > NOT NULL");
+      }
+      
+      if(intent == null){
+        Log.i("==========>>>", "intent > NULL");  
+      }else{
+        Log.i("==========>>>", "intent > NOT NULL");
+      }
+      
+      // if (requestCode == REQUEST_CODE && this.callbackContext != null) {
+        if (this.callbackContext != null) {
+          Log.i("===========================", "Inside> REQUEST_CODE");
             if (resultCode == Activity.RESULT_OK) {
+              Log.i("===========================", "Inside> Activity.RESULT_OK");
                 JSONObject obj = new JSONObject();
                 try {
                     obj.put(TEXT, intent.getStringExtra("SCAN_RESULT"));
@@ -213,8 +96,10 @@ public class BarcodeScanner extends CordovaPlugin {
                     Log.d(LOG_TAG, "This should never happen");
                 }
                 //this.success(new PluginResult(PluginResult.Status.OK, obj), this.callback);
+                Log.i("=============RESULT_OK==============", ""+obj.toString());
                 this.callbackContext.success(obj);
             } else if (resultCode == Activity.RESULT_CANCELED) {
+                Log.i("===========================", "Inside> Activity.RESULT_CANCELED");
                 JSONObject obj = new JSONObject();
                 try {
                     obj.put(TEXT, "");
@@ -224,31 +109,17 @@ public class BarcodeScanner extends CordovaPlugin {
                     Log.d(LOG_TAG, "This should never happen");
                 }
                 //this.success(new PluginResult(PluginResult.Status.OK, obj), this.callback);
+                Log.i("=============RESULT_CANCELED==============", ""+obj.toString());
                 this.callbackContext.success(obj);
             } else {
                 //this.error(new PluginResult(PluginResult.Status.ERROR), this.callback);
+                Log.i("=============Unexpected error==============", "Unexpected error");
                 this.callbackContext.error("Unexpected error");
             }
         }
     }
-
-    /**
-     * Initiates a barcode encode.
-     *
-     * @param type Endoiding type.
-     * @param data The data to encode in the bar code.
-     */
-    public void encode(String type, String data) {
-        Intent intentEncode = new Intent(this.cordova.getActivity().getBaseContext(), EncodeActivity.class);
-        intentEncode.setAction(Intents.Encode.ACTION);
-        intentEncode.putExtra(Intents.Encode.TYPE, type);
-        intentEncode.putExtra(Intents.Encode.DATA, data);
-        // avoid calling other phonegap apps
-        intentEncode.setPackage(this.cordova.getActivity().getApplicationContext().getPackageName());
-
-        this.cordova.getActivity().startActivity(intentEncode);
-    }
-
+    
+    
     /**
      * check application's permissions
      */
@@ -297,7 +168,7 @@ public class BarcodeScanner extends CordovaPlugin {
        switch(requestCode)
        {
            case 0:
-               scan(this.requestArgs);
+               scan();
                break;
        }
    }

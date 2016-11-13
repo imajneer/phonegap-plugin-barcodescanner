@@ -8,7 +8,7 @@
 
 
         var exec = cordova.require("cordova/exec");
-
+        console.log('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
         var scanInProgress = false;
 
         /**
@@ -73,7 +73,7 @@
  * @param config
  */
 BarcodeScanner.prototype.scan = function (successCallback, errorCallback, config) {
-
+            console.log('@@@@@@@@@@@@@@@@@@@@@@@@@@')
             if (config instanceof Array) {
                 // do nothing
             } else {
@@ -83,40 +83,46 @@ BarcodeScanner.prototype.scan = function (successCallback, errorCallback, config
                     config = [];
                 }
             }
+            console.log('1')
 
             if (errorCallback == null) {
                 errorCallback = function () {
                 };
             }
-
+            console.log('11')
             if (typeof errorCallback != "function") {
                 console.log("BarcodeScanner.scan failure: failure parameter not a function");
                 return;
             }
+            console.log('1333')
 
             if (typeof successCallback != "function") {
                 console.log("BarcodeScanner.scan failure: success callback parameter must be a function");
                 return;
             }
+            console.log('1111111')
 
             if (scanInProgress) {
+              console.log('1213123123123123')
                 errorCallback('Scan is already in progress');
                 return;
             }
 
             scanInProgress = true;
-
+            console.log("#################################")
             exec(
                 function(result) {
                     scanInProgress = false;
+                    console.log('Succes......in barcodescanner.....')
                     successCallback(result);
                 },
                 function(error) {
                     scanInProgress = false;
+                    console.log('error......in barcodescanner.....')
                     errorCallback(error);
                 },
                 'BarcodeScanner',
-                'scan',
+                '', //scan
                 config
             );
         };
