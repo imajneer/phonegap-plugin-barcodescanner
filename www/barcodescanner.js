@@ -122,7 +122,7 @@ BarcodeScanner.prototype.scan = function (successCallback, errorCallback, config
                     errorCallback(error);
                 },
                 'BarcodeScanner',
-                '', //scan
+                'scan', //scan
                 config
             );
         };

@@ -73,6 +73,7 @@
 @property (nonatomic)         BOOL                        isFlipped;
 
 
+
 - (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback parentViewController:(UIViewController*)parentViewController alterateOverlayXib:(NSString *)alternateXib;
 - (void)scanBarcode;
 - (void)barcodeScanSucceeded:(NSString*)text format:(NSString*)format;
@@ -111,6 +112,7 @@
 @property (nonatomic, retain) IBOutlet UIView* overlayView;
 // unsafe_unretained is equivalent to assign - used to prevent retain cycles in the property below
 @property (nonatomic, unsafe_unretained) id orientationDelegate;
+@property (nonatomic)BOOL lightOn;
 
 - (id)initWithProcessor:(CDVbcsProcessor*)processor alternateOverlay:(NSString *)alternateXib;
 - (void)startCapturing;
@@ -930,7 +932,10 @@ parentViewController:(UIViewController*)parentViewController
                        target:(id)self
                        action:@selector(cancelButtonPressed:)
                        ] autorelease];
+    
+    id lightButton = [[[UIBarButtonItem alloc] initWithTitle:@"Light" style:UIBarButtonItemStylePlain target:(id)self action:@selector(lightButtonPressed)] autorelease];
 
+    
 
     id flexSpace = [[[UIBarButtonItem alloc]
                     initWithBarButtonSystemItem:UIBarButtonSystemItemFlexibleSpace
@@ -960,7 +965,7 @@ parentViewController:(UIViewController*)parentViewController
     if (_processor.isShowFlipCameraButton) {
       toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace, flipCamera,nil];
     } else {
-      toolbar.items = [NSArray arrayWithObjects:flexSpace,cancelButton,flexSpace,nil];
+      toolbar.items = [NSArray arrayWithObjects:cancelButton,flexSpace,lightButton,nil];
     }
 #endif
     bounds = overlayView.bounds;
@@ -999,6 +1004,29 @@ parentViewController:(UIViewController*)parentViewController
     [overlayView addSubview: reticleView];
 
     return overlayView;
+}
+
+-(void)lightButtonPressed {
+    _lightOn = !_lightOn;
+    NSLog(@"pressed light button!");
+    Class captureDeviceClass = NSClassFromString(@"AVCaptureDevice");
+    if (captureDeviceClass != nil) {
+        AVCaptureDevice *device = [AVCaptureDevice defaultDeviceWithMediaType:AVMediaTypeVideo];
+        if ([device hasTorch] && [device hasFlash]){
+            
+            [device lockForConfiguration:nil];
+            if (_lightOn) {
+                [device setTorchMode:AVCaptureTorchModeOn];
+                [device setFlashMode:AVCaptureFlashModeOn];
+                //torchIsOn = YES; //define as a variable/property if you need to know status
+            } else {
+                [device setTorchMode:AVCaptureTorchModeOff];
+                [device setFlashMode:AVCaptureFlashModeOff];
+                //torchIsOn = NO;
+            }
+            [device unlockForConfiguration];
+        }
+    }
 }
 
 //--------------------------------------------------------------------------
